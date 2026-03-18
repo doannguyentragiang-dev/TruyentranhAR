@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+<title>AR Truyện Tranh</title>
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+
+<script>
+// CẢM ỨNG XOAY VÀ PHÓNG TO MÔ HÌNH
+AFRAME.registerComponent('gesture-handler', {
+schema: { enabled: { default: true }, rotationFactor: { default: 5 }, minScale: { default: 0.1 }, maxScale: { default: 8 } },
+init: function () {
+this.handleScale = this.handleScale.bind(this);
+this.handleRotation = this.handleRotation.bind(this);
+this.isVisible = false;
+this.initialScale = this.el.object3D.scale.clone();
+this.scaleFactor = 1;
+this.el.sceneEl.addEventListener("markerFound", (e) => { this.isVisible = true; });
+this.el.sceneEl.addEventListener("markerLost", (e) => { this.isVisible = false; });
+},
+update: function () {
+this.el.sceneEl.addEventListener("onefingermove", this.handleRotation);
+this.el.sceneEl.addEventListener("twofingermove", this.handleScale);
+},
+handleRotation: function (event) {
+if (this.isVisible) {
+this.el.object3D.rotation.y += event.detail.positionChange.x * this.data.rotationFactor;
+}
+},
+handleScale: function (event) {
+if (this.isVisible) {
+this.scaleFactor *= (1 + event.detail.spreadChange / event.detail.startSpread);
+this.scaleFactor = Math.min(Math.max(this.scaleFactor, this.data.minScale), this.data.maxScale);
+this.el.object3D.scale.x = this.scaleFactor * this.initialScale.x;
+this.el.object3D.scale.y = this.scaleFactor * this.initialScale.y;
+this.el.object3D.scale.z = this.scaleFactor * this.initialScale.z;
+}
+}
+});
+
+AFRAME.registerComponent('gesture-detector', {
+init: function () {
+this.el.addEventListener('mousedown', (event) => { this.el.emit('rangeStart', event); });
+this.el.addEventListener('mousemove', (event) => { this.el.emit('onefingermove', { positionChange: { x: event.movementX / 100, y: event.movementY / 100 } }); });
+this.el.addEventListener('touchstart', (event) => {
+if(event.touches.length === 2) {
+this.startSpread = Math.hypot(event.touches[0].pageX - event.touches[1].pageX, event.touches[0].pageY - event.touches[1].pageY);
+}
+if(event.touches.length === 1) this.lastX = event.touches[0].clientX;
+});
+this.el.addEventListener('touchmove', (event) => {
+if (event.touches.length === 1) {
+const touch = event.touches[0];
+const movementX = touch.clientX - (this.lastX || touch.clientX);
+this.lastX = touch.clientX;
+this.el.emit('onefingermove', { positionChange: { x: movementX / 100, y: 0 } });
+}
+if (event.touches.length === 2) {
+const spread = Math.hypot(event.touches[0].pageX - event.touches[1].pageX, event.touches[0].pageY - event.touches[1].pageY);
+const spreadChange = spread - this.startSpread;
+this.el.emit('twofingermove', { spreadChange: spreadChange, startSpread: this.startSpread });
+this.startSpread = spread;
+}
+});
+}
+});
+</script>
+
+<style>
+body { margin: 0; overflow: hidden; font-family: sans-serif; }
+#start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; }
+#start-btn { padding: 15px 50px; font-size: 24px; font-weight: bold; background: #FF4500; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(255, 69, 0, 0.6); margin-top: 20px;}
+
+.ui-btn { position: fixed; width: 50px; height: 50px; background: white; border-radius: 50%; border: 3px solid #8B4513; color: #8B4513; font-size: 24px; font-weight: bold; z-index: 1000; cursor: pointer; display: none; justify-content: center; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+#audio-btn { top: 20px; right: 20px; font-size: 20px;}
+
+.mindar-ui-overlay { display: none !important; }
+.mindar-ui-loading { display: none !important; }
+.mindar-ui-scanning { display: none !important; }
+</style>
+</head>
+
+<body>
+<div id="start-screen">
+<div style="font-size: 14px; color: #ccc;">Đang tải dữ liệu truyện tranh...</div>
+<button id="start-btn">SẴN SÀNG</button>
+</div>
+
+<div id="audio-btn" class="ui-btn">🔊</div>
+
+<a-scene mindar-image="imageTargetSrc: ./targets.mind; uiScanning: no; filterMinCF:0.001; filterBeta: 10;"
+color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights"
+vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+gesture-detector>
+
+<a-assets timeout="10000">
+    <a-asset-item id="m-9" src="./9.glb"></a-asset-item>
+    <a-asset-item id="m-10" src="./10.glb"></a-asset-item>
+    <a-asset-item id="m-11" src="./11.glb"></a-asset-item>
+    <a-asset-item id="m-13" src="./13.glb"></a-asset-item>
+
+    <audio id="a-9" src="./9.mp3" preload="none"></audio>
+    <audio id="a-10" src="./10.mp3" preload="none"></audio>
+    <audio id="a-11" src="./11.mp3" preload="none"></audio>
+    <audio id="a-13" src="./13.mp3" preload="none"></audio>
+</a-assets>
+
+<a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+<a-entity id="t0" mindar-image-target="targetIndex: 0">
+    <a-entity gltf-model="#m-9" rotation="90 0 0" scale="1 1 1" gesture-handler animation-mixer></a-entity>
+</a-entity>
+
+<a-entity id="t1" mindar-image-target="targetIndex: 1">
+    <a-entity gltf-model="#m-10" rotation="90 0 0" scale="1 1 1" gesture-handler animation-mixer></a-entity>
+</a-entity>
+
+<a-entity id="t2" mindar-image-target="targetIndex: 2">
+    <a-entity gltf-model="#m-11" rotation="90 0 0" scale="1 1 1" gesture-handler animation-mixer></a-entity>
+</a-entity>
+
+<a-entity id="t3" mindar-image-target="targetIndex: 3">
+    <a-entity gltf-model="#m-13" rotation="90 0 0" scale="1 1 1" gesture-handler animation-mixer></a-entity>
+</a-entity>
+
+</a-scene>
+
+<script>
+const startScreen = document.getElementById('start-screen');
+const audioBtn = document.getElementById('audio-btn');
+
+// Mảng chứa tên file tương ứng với từng thẻ (Index 0->3)
+const fileNames = [9, 10, 11, 13];
+
+let activeIdx = -1; 
+let isAudioPlaying = false;
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    startScreen.style.display = 'none';
+    const dummy = new Audio(); dummy.play().catch(()=>{});
+});
+
+function stopAllAudio() {
+    document.querySelectorAll('audio').forEach(a => {
+        a.pause();
+        a.currentTime = 0;
+    });
+    audioBtn.style.display = 'none';
+    isAudioPlaying = false;
+    audioBtn.innerText = '🔊';
+}
+
+// BẮT SỰ KIỆN TÌM THẺ
+for (let i = 0; i < 4; i++) {
+    const entity = document.getElementById(`t${i}`);
+    if (!entity) continue;
+
+    entity.addEventListener('targetFound', () => {
+        if (activeIdx !== i) { stopAllAudio(); }
+        activeIdx = i;
+        audioBtn.style.display = 'flex';
+    });
+
+    entity.addEventListener('targetLost', () => {
+        if (activeIdx === i) {
+            stopAllAudio();
+            activeIdx = -1;
+        }
+    });
+}
+
+// NÚT BẬT/TẮT ÂM THANH
+audioBtn.addEventListener('click', () => {
+    if (activeIdx === -1) return;
+
+    isAudioPlaying = !isAudioPlaying;
+    audioBtn.innerText = isAudioPlaying ? '🎵' : '🔊';
+
+    const audioFile = document.getElementById(`a-${fileNames[activeIdx]}`);
+    if (audioFile) {
+        if (isAudioPlaying) {
+            audioFile.play().catch(()=>{});
+        } else {
+            audioFile.pause();
+        }
+    }
+});
+</script>
+</body>
+</html>
